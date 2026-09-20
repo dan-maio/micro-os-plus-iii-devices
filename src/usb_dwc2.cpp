@@ -173,11 +173,26 @@ constexpr std::uint32_t kMpsEp0     = 64u;
 #define EP_MPS_HI 0x02u
 #endif
 
-// Bulk IN is chunked to the EP1 TX FIFO depth so the FIFO can be prefilled
-// without polling DTXFSTS. Bulk OUT is chunked well below the 19-bit XFRSIZ
-// limit and rounded to packet multiples.
+// A transfer is bounded by TWO fields of D{I,O}EPTSIZ, not one. XFRSIZ is
+// XferSizeWidth bits and PKTCNT is PktSizeWidth bits, both reported by
+// GHWCFG3 -- on the BCM2837 core that prints GHWCFG3 = 0x0ff000e8 they are
+// 19 and 10, so XFRSIZ tops out at 524287 bytes but PKTCNT tops out at 1023
+// PACKETS. The packet count is what binds:
+//
+//     full speed  (64 B)  1023 x 64  =  65472 bytes
+//     high speed (512 B)  1023 x 512 = 523776 bytes
+//
+// The old constant was 0x7F000, chosen against XFRSIZ alone and against
+// 512-byte packets. Under USB_FORCE_FS it asked the core for 8128 packets in
+// a 10-bit field -- an eightfold overflow -- so a large OUT transfer stopped
+// early and the file arrived truncated. 65536 was the last size to survive
+// because it overflows the field by exactly one packet.
+constexpr std::uint32_t kMaxPktCnt   = 1023u;          // GHWCFG3 PktSizeWidth
 constexpr std::uint32_t kInChunkMax  = 512u * 4u;      // 2048 B == EP1 TX FIFO
-constexpr std::uint32_t kOutChunkMax = 0x7F000u;      // < 0x7FFFF, 512-multiple
+constexpr std::uint32_t kOutChunkMax = kMaxPktCnt * kMpsHs;
+
+static_assert (kOutChunkMax <= 0x7FFFFu, "chunk exceeds the XFRSIZ field");
+static_assert (kInChunkMax / kMpsHs <= kMaxPktCnt, "chunk exceeds PKTCNT");
 
 // ---------------------------------------------------------------------------
 // Driver state
