@@ -110,4 +110,52 @@ add_library (micro-os-plus::soc-bcm2837
              ALIAS micro-os-plus-iii-soc-bcm2837-interface)
 
 # -----------------------------------------------------------------------------
-message (STATUS "µOS++ III devices: micro-os-plus::devices micro-os-plus::devices-rk3506 micro-os-plus::soc-bcm2837")
+# STM32F4xx silicon support, for the cortexm project's three STM32 boards.
+#
+# One CMSIS tree serves all of them: the three boards' copies were
+# byte-identical file for file, and stm32f4xx.h picks the part from the
+# -DSTM32F4xxxx the board defines. Only the vector table is genuinely
+# per-part, so there is one target per part rather than one with both -- two
+# vector tables in a link is two definitions of the same symbols.
+#
+# system_stm32f4xx.c is ST's clock/PLL bring-up, carried over unchanged. It
+# too was byte-identical across the three boards.
+
+add_library (micro-os-plus-iii-soc-stm32f4xx-common-interface INTERFACE)
+target_include_directories (
+  micro-os-plus-iii-soc-stm32f4xx-common-interface
+  INTERFACE "soc/stm32f4xx/include" "soc/stm32f4xx/include/cmsis"
+)
+target_sources (
+  micro-os-plus-iii-soc-stm32f4xx-common-interface
+  INTERFACE soc/stm32f4xx/src/system_stm32f4xx.c
+)
+
+add_library (micro-os-plus-iii-soc-stm32f411xe-interface INTERFACE)
+target_link_libraries (
+  micro-os-plus-iii-soc-stm32f411xe-interface
+  INTERFACE micro-os-plus-iii-soc-stm32f4xx-common-interface
+)
+target_sources (
+  micro-os-plus-iii-soc-stm32f411xe-interface
+  INTERFACE soc/stm32f4xx/src/vectors_stm32f411xe.c
+)
+add_library (micro-os-plus::soc-stm32f411xe
+             ALIAS micro-os-plus-iii-soc-stm32f411xe-interface)
+
+add_library (micro-os-plus-iii-soc-stm32f412rx-interface INTERFACE)
+target_link_libraries (
+  micro-os-plus-iii-soc-stm32f412rx-interface
+  INTERFACE micro-os-plus-iii-soc-stm32f4xx-common-interface
+)
+target_sources (
+  micro-os-plus-iii-soc-stm32f412rx-interface
+  INTERFACE soc/stm32f4xx/src/vectors_stm32f412rx.c
+)
+add_library (micro-os-plus::soc-stm32f412rx
+             ALIAS micro-os-plus-iii-soc-stm32f412rx-interface)
+
+# -----------------------------------------------------------------------------
+message (STATUS "µOS++ III devices: micro-os-plus::devices micro-os-plus::devices-rk3506 "
+                "micro-os-plus::soc-bcm2837 micro-os-plus::soc-stm32f411xe "
+                "micro-os-plus::soc-stm32f412rx")
