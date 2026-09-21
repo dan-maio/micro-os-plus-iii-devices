@@ -156,6 +156,27 @@ add_library (micro-os-plus::soc-stm32f412rx
              ALIAS micro-os-plus-iii-soc-stm32f412rx-interface)
 
 # -----------------------------------------------------------------------------
+# RP2350 silicon support, for the cortexm project's Raspberry Pi Pico 2.
+#
+# Headers and ST-style system init only. Everything that makes the RP2350 a
+# DUAL-CORE part -- the SIO hardware spinlocks, the inter-core FIFO, the
+# bootrom core-1 launch -- is deliberately NOT here: it is the board's, in
+# the cortexm project, because it is what that board's SMP kernel lock and
+# IPI are built from.
+
+add_library (micro-os-plus-iii-soc-rp2350-interface INTERFACE)
+target_include_directories (
+  micro-os-plus-iii-soc-rp2350-interface
+  INTERFACE "soc/rp2350/include" "soc/rp2350/include/cmsis"
+)
+target_sources (
+  micro-os-plus-iii-soc-rp2350-interface
+  INTERFACE soc/rp2350/src/system_rp2350.c
+)
+add_library (micro-os-plus::soc-rp2350
+             ALIAS micro-os-plus-iii-soc-rp2350-interface)
+
+# -----------------------------------------------------------------------------
 message (STATUS "µOS++ III devices: micro-os-plus::devices micro-os-plus::devices-rk3506 "
                 "micro-os-plus::soc-bcm2837 micro-os-plus::soc-stm32f411xe "
-                "micro-os-plus::soc-stm32f412rx")
+                "micro-os-plus::soc-stm32f412rx micro-os-plus::soc-rp2350")
