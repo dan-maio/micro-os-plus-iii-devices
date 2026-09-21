@@ -26,6 +26,27 @@
 #include <cstddef>
 #include <cstdint>
 
+// ---------------------------------------------------------------------------
+// A second SoC's SD host arrives as a second FILE, not as edits to this one.
+//
+// An SoC has one SD controller, so a build has one back end, and the board
+// names it. When the board names a different one, this header hands over
+// whole and the driver below is not compiled at all -- so adding the RK3506
+// changed nothing a Raspberry Pi compiles, links or runs. That is the rule:
+// a new board must not be able to disturb a board that already passed.
+//
+//   (default)         Arasan SDHCI @ 0x3F300000   (BCM2837)   -- this file
+//   SD_BACKEND_DWMMC  Synopsys DW-MMC @ 0xFF480000 (RK3506)   -- soc/rk3506/
+//
+// Both define `sd::SdCard` with the same eight methods; flatfs, FatFs' diskio
+// and the tests name only that.
+// ---------------------------------------------------------------------------
+#if defined(SD_BACKEND_DWMMC)
+
+#include <sd_dwmmc.hpp>
+
+#else
+
 namespace sd {
 
 // 512-byte logical sector.
@@ -138,3 +159,5 @@ private:
 };
 
 } // namespace sd
+
+#endif // SD_BACKEND_DWMMC
