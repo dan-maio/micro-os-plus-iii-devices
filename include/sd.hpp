@@ -35,15 +35,25 @@
 // changed nothing a Raspberry Pi compiles, links or runs. That is the rule:
 // a new board must not be able to disturb a board that already passed.
 //
-//   (default)         Arasan SDHCI @ 0x3F300000   (BCM2837)   -- this file
-//   SD_BACKEND_DWMMC  Synopsys DW-MMC @ 0xFF480000 (RK3506)   -- soc/rk3506/
+//   (default)            Arasan SDHCI @ 0x3F300000   (BCM2837)  -- this file
+//   SD_BACKEND_DWMMC     Synopsys DW-MMC @ 0xFF480000 (RK3506)  -- soc/rk3506/
+//   SD_BACKEND_HOSTFILE  an image file on the host    (POSIX)   -- soc/native/
 //
-// Both define `sd::SdCard` with the same eight methods; flatfs, FatFs' diskio
-// and the tests name only that.
+// All three define `sd::SdCard` with the same eight methods; flatfs, FatFs'
+// diskio and the tests name only that.
+//
+// The third one has no silicon behind it and is not a simulation of the other
+// two: it is a block device that happens to be a file, which is all any of
+// them is to the layers above. That is what lets smp-num-test and
+// smp-pipeline-test run on the POSIX port with no edit to either test.
 // ---------------------------------------------------------------------------
 #if defined(SD_BACKEND_DWMMC)
 
 #include <sd_dwmmc.hpp>
+
+#elif defined(SD_BACKEND_HOSTFILE)
+
+#include <sd_hostfile.hpp>
 
 #else
 

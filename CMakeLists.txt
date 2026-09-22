@@ -15,9 +15,10 @@
 # Requires micro-os-plus::iii (the kernel) to have been defined first.
 #
 # Targets exported:
-#   micro-os-plus::devices          drivers over the BCM2837 SD host + DWC2
-#   micro-os-plus::devices-rk3506   the same drivers over the RK3506 SD host
-#   micro-os-plus::soc-bcm2837      BCM2837 silicon support
+#   micro-os-plus::devices            drivers over the BCM2837 SD host + DWC2
+#   micro-os-plus::devices-rk3506     the same drivers over the RK3506 SD host
+#   micro-os-plus::devices-hostfile   the same drivers over a host image file
+#   micro-os-plus::soc-bcm2837        BCM2837 silicon support
 # -----------------------------------------------------------------------------
 
 cmake_minimum_required (VERSION 3.20)
@@ -68,6 +69,41 @@ add_library (micro-os-plus::devices ALIAS micro-os-plus-iii-devices-interface)
 # usb_dwc2.cpp is absent on purpose: the RK3506 gadget stack is a separate
 # port, still to be carried over from the predecessor's src/usb/.
 
+# -----------------------------------------------------------------------------
+# The same drivers over an image file on the POSIX host.
+#
+# A THIRD target for the reason there is a second: what a Raspberry Pi or a
+# Lyra compiles must not change because the host port exists. The filesystem
+# code is shared, line for line, with both of them -- which is the point of
+# the exercise, because it means the flatfs tests that pass on the Pi are the
+# same code when they run natively.
+#
+# FatFs is deliberately absent. The two tests that reach a card here take
+# their `!HW_BUILD` branch, which formats a flatfs volume; the FatFs branch
+# mounts a board's real boot partition, which a host file is not. Linking
+# ff.c anyway would be weight that nothing on this target exercises.
+
+add_library (micro-os-plus-iii-devices-hostfile-interface INTERFACE)
+
+target_include_directories (
+  micro-os-plus-iii-devices-hostfile-interface
+  INTERFACE "include" "soc/native/include"
+)
+
+target_compile_definitions (
+  micro-os-plus-iii-devices-hostfile-interface INTERFACE SD_BACKEND_HOSTFILE
+)
+
+target_sources (
+  micro-os-plus-iii-devices-hostfile-interface
+  INTERFACE soc/native/src/sd_hostfile.cpp
+            src/flatfs.cpp
+)
+
+add_library (micro-os-plus::devices-hostfile
+             ALIAS micro-os-plus-iii-devices-hostfile-interface)
+
+# -----------------------------------------------------------------------------
 add_library (micro-os-plus-iii-devices-rk3506-interface INTERFACE)
 
 target_include_directories (
@@ -178,5 +214,6 @@ add_library (micro-os-plus::soc-rp2350
 
 # -----------------------------------------------------------------------------
 message (STATUS "µOS++ III devices: micro-os-plus::devices micro-os-plus::devices-rk3506 "
+                "micro-os-plus::devices-hostfile "
                 "micro-os-plus::soc-bcm2837 micro-os-plus::soc-stm32f411xe "
                 "micro-os-plus::soc-stm32f412rx micro-os-plus::soc-rp2350")
