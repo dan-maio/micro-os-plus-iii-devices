@@ -583,6 +583,12 @@ FlatFs::append_file (const char* name, const void* data, std::uint32_t size)
   std::uint8_t* q = table_ + static_cast<std::size_t> (idx) * kEntryBytes;
   const std::uint32_t start = load_le32 (q + E_START);
   const std::uint32_t old_size = load_le32 (q + E_SIZE);
+  if (old_size == 0)
+    {
+      // An empty file has no extent (write_file() stores start = 0), so there
+      // is nothing to grow in place: allocate one, exactly as a write does.
+      return write_file (name, data, size);
+    }
   const std::uint32_t new_size = old_size + size;
   if (new_size < old_size)
     {
