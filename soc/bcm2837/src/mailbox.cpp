@@ -24,6 +24,7 @@
  * is the only ISA difference in this file.
  */
 #include <cstdint>
+#include <atomic>
 
 #include "mailbox.hpp"
 #include "bcm2837.hpp"
@@ -77,6 +78,8 @@ cache_flush (const void* addr, std::uint32_t len) noexcept
   __asm__ volatile ("dsb sy" ::: "memory");
 }
 
+static std::atomic_flag s_mbox_lock = ATOMIC_FLAG_INIT;
+
 bool
 do_call (std::uint32_t* buf, bool use_alias) noexcept
 {
@@ -86,6 +89,13 @@ do_call (std::uint32_t* buf, bool use_alias) noexcept
   if ((addr & 0xFu) != 0u)
     {
       return false; // caller broke the 16-byte alignment contract
+    }
+
+  while (s_mbox_lock.test_and_set (std::memory_order_acquire))
+    {
+#if defined(__arm__) || defined(__aarch64__)
+      __asm__ volatile ("yield" ::: "memory");
+#endif
     }
 
   cache_flush (buf, size);
@@ -100,6 +110,7 @@ do_call (std::uint32_t* buf, bool use_alias) noexcept
     {
       if (i >= kSpinLimit)
         {
+          s_mbox_lock.clear (std::memory_order_release);
           return false;
         }
     }
@@ -115,6 +126,7 @@ do_call (std::uint32_t* buf, bool use_alias) noexcept
         {
           if (i >= kSpinLimit)
             {
+              s_mbox_lock.clear (std::memory_order_release);
               return false;
             }
         }
@@ -128,7 +140,9 @@ do_call (std::uint32_t* buf, bool use_alias) noexcept
 
   cache_flush (buf, size);
 
-  return buf[1] == kRespSuccess;
+  const bool ok = (buf[1] == kRespSuccess);
+  s_mbox_lock.clear (std::memory_order_release);
+  return ok;
 }
 
 void
@@ -157,7 +171,7 @@ bool
 set_power_state (std::uint32_t device_id, bool on) noexcept
 {
   // 16-byte aligned, and sized for one tag with an 8-byte value buffer.
-  alignas (16) static std::uint32_t buf[8];
+  alignas (16) std::uint32_t buf[8];
 
   // state bit0 = on/off, bit1 = wait for the domain to settle before replying.
   const std::uint32_t state = on ? 0x3u : 0x2u;

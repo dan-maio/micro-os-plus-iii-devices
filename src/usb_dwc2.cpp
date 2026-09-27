@@ -556,7 +556,7 @@ handle_setup () noexcept
   g_dbg.setup_hist[g_dbg.setup_idx & 7u]
       = (static_cast<std::uint32_t> (bm_rt) << 24)
         | (static_cast<std::uint32_t> (b_req) << 16) | g_ep0_wlength;
-  ++g_dbg.setup_idx;
+  g_dbg.setup_idx = g_dbg.setup_idx + 1;
   g_ep0_after = Ep0After::none;
   // A non-zero wLength on a standard request here is a device-to-host data
   // stage, so an OUT status stage follows the IN data.
@@ -696,7 +696,7 @@ program_bulk_in (const std::uint8_t* p, std::uint32_t len) noexcept
 void
 handle_bus_reset () noexcept
 {
-  ++g_dbg.usbrst;
+  g_dbg.usbrst = g_dbg.usbrst + 1;
   g_configured = false;
   g_ep0_after = Ep0After::none;
   g_pending_addr = 0u;
@@ -713,7 +713,7 @@ handle_bus_reset () noexcept
 void
 handle_enum_done () noexcept
 {
-  ++g_dbg.enumdone;
+  g_dbg.enumdone = g_dbg.enumdone + 1;
   g_dbg.dsts = rd (reg::DSTS);
   // EP0 max packet is 64 for both HS and FS: MPS field 0 in DIEPCTL0 / DOEPCTL0.
   modify (DIEPCTL (0), bit::MPS_MASK, 0u);
@@ -743,7 +743,7 @@ handle_ep_in () noexcept
         }
       if (n == 0u)
         {
-          ++g_dbg.ep0_in;
+          g_dbg.ep0_in = g_dbg.ep0_in + 1;
           g_dbg.last_diepint0 = st;
           g_dbg.ep0_in_residue = rd (DIEPTSIZ (0)) & 0x7FFFFu;
           if (g_ep0_expect_status_out)
@@ -761,7 +761,7 @@ handle_ep_in () noexcept
         }
       else if (n == 1u)
         {
-          ++g_dbg.iep;
+          g_dbg.iep = g_dbg.iep + 1;
           g_in_done = true;
         }
     }
@@ -796,7 +796,7 @@ handle_ep_out () noexcept
             }
           if ((st & bit::XFERCOMPL) != 0u)
             {
-              ++g_dbg.ep0_out;
+              g_dbg.ep0_out = g_dbg.ep0_out + 1;
               g_dbg.last_doepint0 = st;
               // OUT status stage of a control-IN transfer completed.
               g_ep0_expect_status_out = false;
@@ -807,7 +807,7 @@ handle_ep_out () noexcept
         {
           if ((st & bit::XFERCOMPL) != 0u)
             {
-              ++g_dbg.oep;
+              g_dbg.oep = g_dbg.oep + 1;
               // Internal DMA moved the data straight into g_out_buf, so the
               // byte count cannot come from the RX FIFO reader (that path is
               // PIO-only and RXFLVL is not even unmasked in DMA mode). The
@@ -832,12 +832,12 @@ handle_rx_fifo () noexcept
       const unsigned ep = sts & bit::RXSTSP_EPNUM_MASK;
       const std::uint32_t bcnt = (sts >> bit::RXSTSP_BCNT_SHIFT) & bit::RXSTSP_BCNT_MASK;
       const unsigned pktsts = (sts >> bit::RXSTSP_PKTSTS_SHIFT) & bit::RXSTSP_PKTSTS_MASK;
-      ++g_dbg.rx_pkts;
+      g_dbg.rx_pkts = g_dbg.rx_pkts + 1;
 
       switch (pktsts)
         {
         case 6u: // SETUP data received
-          ++g_dbg.setups;
+          g_dbg.setups = g_dbg.setups + 1;
           read_fifo (0u, g_setup, (bcnt < 8u) ? bcnt : 8u);
           g_setup_pending = true; // process on SETUP-stage-complete (case 4)
           break;
@@ -909,7 +909,7 @@ handle_rx_fifo () noexcept
 void
 service_events_once () noexcept
 {
-  ++g_dbg.service_loops;
+  g_dbg.service_loops = g_dbg.service_loops + 1;
   g_evt_sem->wait ();
   std::uint32_t ev;
   {
@@ -1061,8 +1061,9 @@ init () noexcept
 
   // Pulse Power-On Programming Done to commit device configuration.
   setb (reg::DCTL, bit::POPRGDNE);
-  for (volatile int i = 0; i < 1000; ++i)
+  for (int i = 0; i < 1000; ++i)
     {
+      __asm__ volatile ("nop");
     }
   clrb (reg::DCTL, bit::POPRGDNE);
 
@@ -1105,10 +1106,10 @@ init () noexcept
 void
 isr () noexcept
 {
-  ++g_dbg.isr_calls;
+  g_dbg.isr_calls = g_dbg.isr_calls + 1;
   if (port_cpu_id () != 0u)
     {
-      ++g_dbg.isr_offcore;
+      g_dbg.isr_offcore = g_dbg.isr_offcore + 1;
       return;
     }
   g_dbg.gintsts = rd (reg::GINTSTS);
